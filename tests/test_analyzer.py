@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from excel_mcp.analyzer import HAS_FORMUALIZER, get_cell_value, get_formulas, validate_totals
+from excel_mcp.analyzer import (  # via analyzer/__init__.py
+    get_cell_value,
+    get_formulas,
+    validate_totals,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

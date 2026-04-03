@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from excel_mcp.reader import list_sheets, read_cell_range, read_sheet
+from excel_mcp.reader import list_sheets, read_cell_range, read_sheet  # via reader/__init__.py
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

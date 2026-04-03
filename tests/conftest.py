@@ -5,7 +5,6 @@ from pathlib import Path
 import openpyxl
 import pytest
 
-
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 

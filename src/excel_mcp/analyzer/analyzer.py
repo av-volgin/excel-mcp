@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import openpyxl
 
-from .utils import cell_ref_to_coords, classify_value, coords_to_cell_ref
+from ..common.utils import cell_ref_to_coords, classify_value, coords_to_cell_ref, parse_range
+from ..common.workbook import open_for_read
 
 # Formualizer is optional
 try:
@@ -30,10 +30,6 @@ def get_formulas(
 
     Returns {formulas: [{cell, formula_text, formula_ast?, referenced_cells?}], engine, sheet_name}.
     """
-    path = Path(file_path)
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
     if HAS_FORMUALIZER:
         return _get_formulas_formualizer(file_path, sheet_name, cell_range)
     return _get_formulas_openpyxl(file_path, sheet_name, cell_range)
@@ -52,10 +48,6 @@ def get_cell_value(
 
     Returns {ref, value, type, formula?, formula_ast?, engine}.
     """
-    path = Path(file_path)
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
     ref = coords_to_cell_ref(row, col)
 
     if HAS_FORMUALIZER:
@@ -75,8 +67,9 @@ def validate_totals(
 
     Returns {valid: bool, results: [{cell, expected, actual, match}]}.
     """
-    path = Path(file_path)
-    if not path.exists():
+    from pathlib import Path
+
+    if not Path(file_path).exists():
         raise FileNotFoundError(f"File not found: {file_path}")
 
     engine = "formualizer" if HAS_FORMUALIZER else "openpyxl"
@@ -92,7 +85,7 @@ def validate_totals(
             wb = formualizer.load_workbook(file_path)
             actual = wb.get_value(sheet_name, row - 1, col - 1)  # 0-based
         else:
-            wb_opx = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+            wb_opx = open_for_read(file_path, data_only=True)
             try:
                 ws = wb_opx[sheet_name]
                 actual = ws.cell(row=row, column=col).value
@@ -140,8 +133,6 @@ def _get_formulas_formualizer(
 
     # Determine scan range
     if cell_range:
-        from .utils import parse_range
-
         (min_row, min_col), (max_row, max_col) = parse_range(cell_range)
     else:
         # Scan entire sheet - get dimensions from openpyxl
@@ -196,14 +187,12 @@ def _get_formulas_openpyxl(
     cell_range: str | None,
 ) -> dict[str, Any]:
     """Extract formulas using openpyxl (text only, no AST)."""
-    wb = openpyxl.load_workbook(file_path, data_only=False, read_only=True)
+    wb = open_for_read(file_path, data_only=False)
     try:
         ws = wb[sheet_name] if sheet_name else wb[wb.sheetnames[0]]
         actual_sheet = ws.title
 
         if cell_range:
-            from .utils import parse_range
-
             (min_row, min_col), (max_row, max_col) = parse_range(cell_range)
         else:
             min_row, min_col = 1, 1
@@ -274,7 +263,7 @@ def _get_cell_openpyxl(
 ) -> dict[str, Any]:
     """Read single cell via openpyxl."""
     # Read value
-    wb_val = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+    wb_val = open_for_read(file_path, data_only=True)
     try:
         value = wb_val[sheet_name].cell(row=row, column=col).value
     finally:
@@ -289,7 +278,7 @@ def _get_cell_openpyxl(
     }
 
     # Read formula
-    wb_formula = openpyxl.load_workbook(file_path, data_only=False, read_only=True)
+    wb_formula = open_for_read(file_path, data_only=False)
     try:
         formula_val = wb_formula[sheet_name].cell(row=row, column=col).value
         if isinstance(formula_val, str) and formula_val.startswith("="):

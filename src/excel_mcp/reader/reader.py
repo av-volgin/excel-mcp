@@ -2,23 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-import openpyxl
 from openpyxl.utils import get_column_letter
 
-from .utils import classify_value, coords_to_cell_ref, is_total_row, parse_range
-
-
-def _open_workbook(file_path: str, data_only: bool = True) -> openpyxl.Workbook:
-    """Open workbook with validation."""
-    path = Path(file_path)
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-    if path.suffix.lower() not in (".xlsx", ".xlsm", ".xltx", ".xltm"):
-        raise ValueError(f"Unsupported file format: {path.suffix}")
-    return openpyxl.load_workbook(str(path), data_only=data_only, read_only=True)
+from ..common.utils import classify_value, coords_to_cell_ref, is_total_row, parse_range
+from ..common.workbook import open_for_metadata, open_for_read
 
 
 def list_sheets(file_path: str) -> list[dict[str, Any]]:
@@ -26,7 +15,7 @@ def list_sheets(file_path: str) -> list[dict[str, Any]]:
 
     Returns list of {name, rows, cols, has_tables, table_names}.
     """
-    wb = openpyxl.load_workbook(file_path, read_only=False, data_only=True)
+    wb = open_for_metadata(file_path)
     try:
         sheets = []
         for name in wb.sheetnames:
@@ -67,7 +56,7 @@ def read_sheet(
     Returns:
         {headers, rows, total_rows, has_more, sheet_name}
     """
-    wb = _open_workbook(file_path, data_only=True)
+    wb = open_for_read(file_path, data_only=True)
     try:
         ws = wb[sheet_name] if sheet_name else wb[wb.sheetnames[0]]
         actual_sheet = ws.title
@@ -143,7 +132,7 @@ def read_cell_range(
 
     Returns {cells: [{ref, row, col, value, type}], sheet_name}.
     """
-    wb = _open_workbook(file_path, data_only=True)
+    wb = open_for_read(file_path, data_only=True)
     try:
         ws = wb[sheet_name]
         (min_row, min_col), (max_row, max_col) = parse_range(range_str)

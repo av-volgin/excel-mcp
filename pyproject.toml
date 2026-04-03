@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "excel-mcp"
-version = "0.1.0"
-description = "MCP server for reading Excel files with formula-aware parsing"
+version = "0.2.0"
+description = "MCP server for reading, writing, and analyzing Excel files"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
@@ -28,12 +28,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-formulas = ["formualizer>=0.5.0"]
+analyzer = ["formualizer>=0.5.0"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
 ]
+all = ["excel-mcp[analyzer]"]
 
 [project.scripts]
 excel-mcp = "excel_mcp.server:main"
