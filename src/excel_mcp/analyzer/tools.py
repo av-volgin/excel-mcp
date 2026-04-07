@@ -16,9 +16,9 @@ def register_analyzer_tools(mcp):
         sheet_name: str | None = None,
         cell_range: str | None = None,
     ) -> dict[str, Any]:
-        """Extract formulas from cells with optional AST parsing.
+        """Extract formulas from cells with optional evaluation.
 
-        With Formualizer installed: returns formula text + AST tree + referenced cells.
+        With Formualizer installed: returns formula text + evaluated values.
         Without Formualizer: returns formula text only.
 
         The 'engine' field in the response indicates which backend was used.
