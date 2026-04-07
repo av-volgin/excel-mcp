@@ -2,10 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/ghcr.io-excel--mcp-blue?logo=docker)](https://ghcr.io/av-volgin/excel-mcp)
 
 An MCP server for reading, writing, and analyzing Excel files with formula-aware parsing.
 
-Unlike other Excel MCP servers that only read cell values, **excel-mcp** understands formulas — it can extract formula AST trees, build dependency graphs, and validate computed values. It also provides structured writing with batch operations, templates, and verification.
+Unlike other Excel MCP servers that only read cell values, **excel-mcp** understands formulas — it can extract formula text, evaluate formula results, and validate computed values. It also provides structured writing with batch operations, templates, and verification.
 
 Powered by [openpyxl](https://openpyxl.readthedocs.io/) for reliable data operations and [Formualizer](https://github.com/PSU3D0/formualizer) for formula analysis.
 
@@ -70,36 +71,25 @@ With Formualizer support:
 
 ### Docker (streamable-http)
 
-For running as a sidecar container alongside AI gateways (OpenClaw, custom setups):
+Pre-built images are published to [GitHub Container Registry](https://ghcr.io/av-volgin/excel-mcp) on every push to main.
 
 ```yaml
 # docker-compose.yml
 services:
   mcp-excel:
-    build:
-      context: .
-      dockerfile_inline: |
-        FROM python:3.11-slim
-        WORKDIR /app
-        COPY . .
-        RUN pip install --no-cache-dir .[all]
-        EXPOSE 8000
-        CMD ["excel-mcp", "--tools", "all", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000", "--no-dns-rebinding-protection"]
+    image: ghcr.io/av-volgin/excel-mcp:latest
     container_name: mcp-excel
     mem_limit: 256m
     restart: unless-stopped
     volumes:
       - /path/to/excel/files:/data:ro
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
-      interval: 30s
-      timeout: 15s
-      start_period: 60s
-      retries: 3
 ```
 
 The MCP endpoint is available at `http://mcp-excel:8000/mcp` (POST).
 Health check endpoint: `http://mcp-excel:8000/healthz` (GET).
+Built-in healthcheck, exposed port 8000.
+
+To update: `docker compose pull mcp-excel && docker compose up -d mcp-excel`
 
 ### Tool groups
 
