@@ -9,8 +9,6 @@ Unlike other Excel MCP servers that only read cell values, **excel-mcp** underst
 
 Powered by [openpyxl](https://openpyxl.readthedocs.io/) for reliable data operations and [Formualizer](https://github.com/PSU3D0/formualizer) for formula analysis.
 
-> **Note:** Formualizer wheel build may fail in minimal Docker images (`python:3.11-slim`). This is tracked in [PSU3D0/formualizer#39](https://github.com/PSU3D0/formualizer/issues/39) and should be fixed in the next release ([#40](https://github.com/PSU3D0/formualizer/pull/40)). The server gracefully degrades to openpyxl-only mode when Formualizer is unavailable.
-
 ## Features
 
 - **Bulk data reading** — read sheets as tables with automatic header detection, pagination, and total-row skipping
@@ -84,7 +82,7 @@ services:
         FROM python:3.11-slim
         WORKDIR /app
         COPY . .
-        RUN pip install --no-cache-dir .[all] 2>/dev/null || pip install --no-cache-dir .
+        RUN pip install --no-cache-dir .[all]
         EXPOSE 8000
         CMD ["excel-mcp", "--tools", "all", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000", "--no-dns-rebinding-protection"]
     container_name: mcp-excel

@@ -25,11 +25,16 @@ def get_formulas(
 ) -> dict[str, Any]:
     """Extract formulas from a sheet or cell range.
 
-    With Formualizer: returns formula text + AST + referenced cells.
+    With Formualizer: returns formula text + evaluated values.
     Without Formualizer: returns formula text only (openpyxl).
 
-    Returns {formulas: [{cell, formula_text, formula_ast?, referenced_cells?}], engine, sheet_name}.
+    Returns {formulas: [{cell, formula_text, evaluated_value?}], engine, sheet_name}.
     """
+    from pathlib import Path
+
+    if not Path(file_path).exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
     if HAS_FORMUALIZER:
         return _get_formulas_formualizer(file_path, sheet_name, cell_range)
     return _get_formulas_openpyxl(file_path, sheet_name, cell_range)
@@ -46,8 +51,13 @@ def get_cell_value(
     With Formualizer: fast targeted read via get_value.
     Without Formualizer: openpyxl data_only=True.
 
-    Returns {ref, value, type, formula?, formula_ast?, engine}.
+    Returns {ref, value, type, formula?, evaluated_value?, engine}.
     """
+    from pathlib import Path
+
+    if not Path(file_path).exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
     ref = coords_to_cell_ref(row, col)
 
     if HAS_FORMUALIZER:
@@ -83,7 +93,7 @@ def validate_totals(
 
         if HAS_FORMUALIZER:
             wb = formualizer.load_workbook(file_path)
-            actual = wb.get_value(sheet_name, row - 1, col - 1)  # 0-based
+            actual = wb.get_value(sheet_name, row, col)  # 1-based in v0.5.4+
         else:
             wb_opx = open_for_read(file_path, data_only=True)
             try:
@@ -124,32 +134,31 @@ def _get_formulas_formualizer(
     sheet_name: str | None,
     cell_range: str | None,
 ) -> dict[str, Any]:
-    """Extract formulas using Formualizer (AST + references)."""
+    """Extract formulas using Formualizer (text + evaluated values)."""
     wb = formualizer.load_workbook(file_path)
-    sheets = wb.sheet_names if hasattr(wb, "sheet_names") else []
 
-    if sheet_name is None:
-        sheet_name = sheets[0] if sheets else "Sheet1"
+    # Use openpyxl for sheet names (formualizer may include phantom sheets)
+    wb_opx = openpyxl.load_workbook(file_path, read_only=True)
+    try:
+        if sheet_name is None:
+            sheet_name = wb_opx.sheetnames[0]
 
-    # Determine scan range
-    if cell_range:
-        (min_row, min_col), (max_row, max_col) = parse_range(cell_range)
-    else:
-        # Scan entire sheet - get dimensions from openpyxl
-        wb_opx = openpyxl.load_workbook(file_path, read_only=True)
-        try:
+        # Determine scan range
+        if cell_range:
+            (min_row, min_col), (max_row, max_col) = parse_range(cell_range)
+        else:
             ws = wb_opx[sheet_name]
             min_row, min_col = 1, 1
             max_row = ws.max_row or 100
             max_col = ws.max_column or 26
-        finally:
-            wb_opx.close()
+    finally:
+        wb_opx.close()
 
     formulas = []
     for r in range(min_row, max_row + 1):
         for c in range(min_col, max_col + 1):
             try:
-                formula_text = wb.get_formula(sheet_name, r - 1, c - 1)  # 0-based
+                formula_text = wb.get_formula(sheet_name, r, c)  # 1-based in v0.5.4+
             except Exception:
                 formula_text = None
 
@@ -158,19 +167,13 @@ def _get_formulas_formualizer(
                     "cell": coords_to_cell_ref(r, c),
                     "formula_text": formula_text,
                 }
-                # Try to get AST
+                # Evaluate formula value
                 try:
-                    ast = wb.get_formula_ast(sheet_name, r - 1, c - 1)
-                    entry["formula_ast"] = str(ast) if ast else None
-                except (AttributeError, Exception):
-                    entry["formula_ast"] = None
-
-                # Try to get referenced cells
-                try:
-                    deps = wb.get_dependencies(sheet_name, r - 1, c - 1)
-                    entry["referenced_cells"] = deps if deps else None
-                except (AttributeError, Exception):
-                    entry["referenced_cells"] = None
+                    evaluated = wb.evaluate_cell(sheet_name, r, c)
+                    val, _ = classify_value(evaluated)
+                    entry["evaluated_value"] = val
+                except Exception:
+                    entry["evaluated_value"] = None
 
                 formulas.append(entry)
 
@@ -207,8 +210,6 @@ def _get_formulas_openpyxl(
                     formulas.append({
                         "cell": coords_to_cell_ref(r, c),
                         "formula_text": val,
-                        "formula_ast": None,
-                        "referenced_cells": None,
                     })
 
         return {
@@ -229,7 +230,7 @@ def _get_cell_formualizer(
 ) -> dict[str, Any]:
     """Read single cell via Formualizer."""
     wb = formualizer.load_workbook(file_path)
-    value = wb.get_value(sheet_name, row - 1, col - 1)  # 0-based
+    value = wb.get_value(sheet_name, row, col)  # 1-based in v0.5.4+
     val, vtype = classify_value(value)
 
     result: dict[str, Any] = {
@@ -240,14 +241,15 @@ def _get_cell_formualizer(
     }
 
     try:
-        formula = wb.get_formula(sheet_name, row - 1, col - 1)
+        formula = wb.get_formula(sheet_name, row, col)
         if formula:
             result["formula"] = formula
             try:
-                ast = wb.get_formula_ast(sheet_name, row - 1, col - 1)
-                result["formula_ast"] = str(ast) if ast else None
-            except (AttributeError, Exception):
-                result["formula_ast"] = None
+                evaluated = wb.evaluate_cell(sheet_name, row, col)
+                ev_val, _ = classify_value(evaluated)
+                result["evaluated_value"] = ev_val
+            except Exception:
+                pass
     except Exception:
         pass
 

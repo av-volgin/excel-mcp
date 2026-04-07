@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "excel-mcp"
-version = "0.2.0"
+version = "0.2.2"
 description = "MCP server for reading, writing, and analyzing Excel files"
 readme = "README.md"
 license = "MIT"
@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-analyzer = ["formualizer>=0.5.0"]
+analyzer = ["formualizer>=0.5.4"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
